@@ -34,26 +34,36 @@ on:
         required: false
         type: boolean
         default: false
+      supp_op:
+        required: false
+        type: boolean
+        default: false   # <<< обязательно, иначе startup failure
 
 jobs:
-  build-kernel-a14-6-1-kernelsu-susfs:
+  build-kernel-a14-6-1:
     strategy:
       fail-fast: false
       matrix:
         include:
           - sub_level: "115"
-            os_patch_level: "2024-12"   # <<< ТОЛЬКО 6.1.115
+            os_patch_level: "2024-12"   # <<< только GKI 6.1.115
+
     uses: ./.github/workflows/gki-kernel.yml
     secrets: inherit
+
     with:
       make_release: ${{ inputs.make_release }}
       android_version: "android14"
       kernel_version: "6.1"
       sub_level: ${{ matrix.sub_level }}
       os_patch_level: ${{ matrix.os_patch_level }}
+
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       kernelsu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version }}
+
       use_zram: ${{ inputs.use_zram }}
       use_kpm: ${{ inputs.use_kpm }}
+
       BBG: ${{ inputs.BBG }}
+      supp_op: ${{ inputs.supp_op }}   # <<< добавлено, чтобы workflow был валиден
