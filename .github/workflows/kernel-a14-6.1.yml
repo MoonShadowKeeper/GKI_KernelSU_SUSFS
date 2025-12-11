@@ -45,8 +45,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - sub_level: "115"
-            os_patch_level: "2024-12"   # <<< только GKI 6.1.115
+          - sub_level: "138"
+            os_patch_level: "2025-12"   # <<< только GKI 6.1.138
 
     uses: ./.github/workflows/gki-kernel.yml
     secrets: inherit
