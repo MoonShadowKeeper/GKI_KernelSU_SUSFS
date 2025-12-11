@@ -1,4 +1,4 @@
-name: Test Release
+name: Test Release (Тестовый релиз)
 
 permissions:
   contents: write
@@ -12,20 +12,20 @@ on:
   workflow_dispatch:
     inputs:
       make_release:
-        description: 'Do you want to create a release?'
+        description: 'Хотите создать релиз?'
         required: true
         type: boolean
         default: true
       kernels_to_build:
         description: |
-          Comma-separated list of kernels to build/release, e.g.:
+          Список ядер для сборки (через запятую), например:
           a12-5.10,a13-5.10,a13-5.15,a14-5.15,a14-6.1,a15-6.6
-          or "all" to build every kernel.
+          или "all" для сборки всех ядер.
         required: true
         type: string
         default: 'all'
       kernelsu_variant:
-        description: "Select KernelSU"
+        description: "Выберите вариант KernelSU"
         required: true
         type: choice
         options:
@@ -35,35 +35,35 @@ on:
         - SukiSU
         default: SukiSU
       kernelsu_branch:
-        description: "Select KSU branch"
+        description: "Выберите ветку KSU"
         required: true
         type: choice
         options:
-        - Stable(标准)
-        - Dev(开发)
-        - Other(其他/指定)
-        default: Stable(标准)
+        - Stable(Стабильная)
+        - Dev(Разработка)
+        - Other(Другое)
+        default: Stable(Стабильная)
       version:
-        description: 'Custom version name (e.g., characters after 5.10.198 / leave blank to use default version number)'
+        description: 'Своя версия (например, символы после 5.10.198 / оставьте пустым для использования версии по умолчанию)'
         required: false
         type: string
       use_zram:
-        description: 'Enable more ZRAM algorithms?'
+        description: 'Включить дополнительные алгоритмы ZRAM?'
         required: true
         type: boolean
         default: true
       use_kpm:
-        description: 'Enable KPM functionality?'
+        description: 'Включить функционал KPM?'
         required: true
         type: boolean
         default: true
       BBG:
-        description: "是否启用内核层面阻止对关键分区/设备节点的非法写入(LSM)？"
+        description: "Включить защиту LSM (блокировка нелегальной записи в ключевые разделы/узлы)?"
         required: true
         type: boolean
         default: false
       get_manager:
-        description: 'Get the latest KSU Manager at the same time?'
+        description: 'Скачать также последний KSU Manager?'
         required: true
         type: boolean
         default: false
@@ -196,7 +196,7 @@ jobs:
           if [[ "${{ inputs.get_manager }}" == "true" ]]; then
             if [[ "$RESULT_GET_MANAGER" != "success" ]]; then
               SHOULD_PROCEED="false"
-              ERROR_MESSAGE+="get_manager job did not succeed (result: $RESULT_GET_MANAGER). "
+              ERROR_MESSAGE+="Job get_manager did not succeed (result: $RESULT_GET_MANAGER). "
             fi
           fi
           
@@ -251,29 +251,29 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
       RELEASE_NAME: "GKI Kernel: ${{ inputs.kernelsu_variant == 'Next' && 'KernelSU-' || '' }} ${{ inputs.kernelsu_variant }}"
       INITIAL_RELEASE_NOTES: |
-        This release includes **${{ inputs.kernelsu_variant == 'Next' && 'KernelSU' || '' }}${{ inputs.kernelsu_variant }}**
+        Этот релиз включает **${{ inputs.kernelsu_variant == 'Next' && 'KernelSU' || '' }}${{ inputs.kernelsu_variant }}**
         
-        Features:
+        Особенности:
         -> ${{ inputs.kernelsu_variant == 'Next' && 'KernelSU-' || '' }}${{ inputs.kernelsu_variant }}-${{ inputs.kernelsu_branch }}
         -> SUSFS ඞ v2.0.0
-        -> Manual Syscall Hooks for better hiding
-        -> Magic Mount Support
-        -> Simple hiding for LineageOS detection
-        -> Futile hiding for jit-zygote-cache detection
-        -> Wireguard Support
-        -> BBR Support
-        ${{ inputs.BBG && '-> BBG Support' || '' }}
-        -> BBG ${{ inputs.BBG && 'supported' || 'not supported' }}
-        ${{ inputs.use_kpm && '-> KPM Support' || '' }}
-        -> **LZ4KD&ONEPLUS_LZ4K** ${{ inputs.use_zram && 'supported' || 'not supported' }}
+        -> Manual Syscall Hooks (Ручные хуки) для лучшего скрытия
+        -> Поддержка Magic Mount
+        -> Простое скрытие для обхода детекта LineageOS
+        -> Futile скрытие для обхода детекта jit-zygote-cache
+        -> Поддержка Wireguard
+        -> Поддержка BBR
+        ${{ inputs.BBG && '-> Поддержка BBG' || '' }}
+        -> BBG ${{ inputs.BBG && 'поддерживается' || 'не поддерживается' }}
+        ${{ inputs.use_kpm && '-> Поддержка KPM' || '' }}
+        -> **LZ4KD&ONEPLUS_LZ4K** ${{ inputs.use_zram && 'поддерживается' || 'не поддерживается' }}
         
         <details>
-        <summary>Notes:</summary>
-        - -> In SUS SU Mode 2, it will show as disabled or incompatible, the reason is that non-kprobe hooks were used (when compiling the kernel), and non-kprobe hooks are no longer needed!
-        - -> In the latest version of susfs, flashing AK3 compressed package with Kernel Flasher will brick your device, try [Horizon Kernel Flasher]\(https://github.com/libxzr/HorizonKernelFlasher)!
+        <summary>Примечания:</summary>
+        - -> В режиме SUS SU Mode 2 статус может отображаться как отключенный или несовместимый. Причина: при компиляции ядра использовались non-kprobe хуки, которые больше не требуются!
+        - -> В последней версии susfs прошивка архива AK3 через Kernel Flasher приведет к кирпичу, используйте [Horizon Kernel Flasher]\(https://github.com/libxzr/HorizonKernelFlasher)!
         </details>
         
-        Modules:
+        Модули:
         -> https://github.com/sidex15/ksu_module_susfs
     steps:
       - name: Conditional Release Check
@@ -374,8 +374,8 @@ jobs:
         id: build_notes
         if: ${{ steps.release_check.outcome == 'success' }}
         run: |
-          # Handle 'Other' branch selection
-          if [[ "${{ inputs.kernelsu_branch }}" == "Other(其他/指定)" ]]; then
+          # Handle 'Other' branch selection (UPDATED FOR RUSSIAN TRANSLATION)
+          if [[ "${{ inputs.kernelsu_branch }}" == "Other(Другое)" ]]; then
             echo "Using custom branch selection"
             if [[ "${{ inputs.kernelsu_variant }}" == "Official" ]]; then
               KSU_BRANCH="main"
@@ -384,13 +384,13 @@ jobs:
             else
               KSU_BRANCH="main"  # Default for MKSU/SukiSU
             fi
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Dev(开发)" || "${{ inputs.kernelsu_variant }}" == "MKSU" || "${{ inputs.kernelsu_variant }}" == "SukiSU" ]]; then
+          elif [[ "${{ inputs.kernelsu_branch }}" == "Dev(Разработка)" || "${{ inputs.kernelsu_variant }}" == "MKSU" || "${{ inputs.kernelsu_variant }}" == "SukiSU" ]]; then
             if [[ "${{ inputs.kernelsu_variant }}" == "Official" || "${{ inputs.kernelsu_variant }}" == "MKSU" || "${{ inputs.kernelsu_variant }}" == "SukiSU" ]]; then
               KSU_BRANCH="main"
             elif [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
               KSU_BRANCH="next"
             fi
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Stable(标准)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then
+          elif [[ "${{ inputs.kernelsu_branch }}" == "Stable(Стабильная)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then
             KSU_REPO_URL=""
             if [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
               KSU_REPO_URL="https://github.com/tiann/KernelSU.git"
@@ -432,7 +432,7 @@ jobs:
           
           KSU_REF=""
           KSU_URL=""
-          if [[ "${{ inputs.kernelsu_branch }}" == "Stable(标准)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then
+          if [[ "${{ inputs.kernelsu_branch }}" == "Stable(Стабильная)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then
             TAG=$(git ls-remote --tags --sort=-v:refname "$KSU_REPO_URL" | grep -o 'refs/tags/.*' | cut -d'/' -f3 | head -n1)
             KSU_REF="${TAG:-UNKNOWN_TAG}"
             KSU_URL="https://github.com/$KSU_REPO_URL2/releases/tag/$KSU_REF"
@@ -458,9 +458,9 @@ jobs:
           
           FINAL_RELEASE_NOTES+="\n\nLTO: thin"
           FINAL_RELEASE_NOTES+="\n\n<details>"
-          FINAL_RELEASE_NOTES+="\n<summary>Commit Information</summary>"
-          FINAL_RELEASE_NOTES+="\n\nCommit hashes and links (the following commits refer to the progress of KSU or SUSFS at the time of this compilation):"
-          FINAL_RELEASE_NOTES+="\n- **KernelSU is ${{ inputs.kernelsu_variant }}-${KSU_BRANCH}** (Commit): [${KSU_REF}](${KSU_URL})"
+          FINAL_RELEASE_NOTES+="\n<summary>Информация о коммитах</summary>"
+          FINAL_RELEASE_NOTES+="\n\nХеши коммитов и ссылки (следующие коммиты относятся к состоянию KSU или SUSFS на момент компиляции):"
+          FINAL_RELEASE_NOTES+="\n- **KernelSU - ${{ inputs.kernelsu_variant }}-${KSU_BRANCH}** (Commit): [${KSU_REF}](${KSU_URL})"
           FINAL_RELEASE_NOTES+="\n- **SUSFS4KSU** (Commit):"
           
           GITLAB_OWNER="simonpunk"
@@ -593,4 +593,4 @@ jobs:
             -d "message_thread_id=$TELEGRAM_MESSAGE_THREAD_ID" \
             -d "text=Latest release: 
             https://github.com/ShirkNeko/GKI_KernelSU_SUSFS/releases/tag/${{ env.NEW_TAG }}
-            ${{ env.RELEASE_NOTES }}"    
+            ${{ env.RELEASE_NOTES }}"
