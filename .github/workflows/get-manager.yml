@@ -1,10 +1,10 @@
 name: GetManager
 permissions:
-  contents: write  # Allow writing to repository contents (for pushing tags)
-  actions: read   # Allows triggering actions
+  contents: write
+  actions: read
 
 on:
-  workflow_call: # This allows this workflow to be called from another workflow
+  workflow_call:
     inputs:
       kernelsu_variant:
         required: true
@@ -14,74 +14,112 @@ jobs:
   get_ksu_manager:
     runs-on: ubuntu-latest
     env:
-      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
-      CCACHE_NOHASHDIR: "true"
-      CCACHE_HARDLINK: "true"
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: 安装依赖
-        run: sudo apt update && sudo apt upgrade -y && sudo apt install -y git curl jq
+      - name: Установка зависимостей
+        run: sudo apt update && sudo apt install -y git curl jq unzip
 
-      - name: 设定 KSU 环境变量
+      - name: Определение версии и переменных
+        id: setup_env
         run: |
+          # Инициализация переменных
+          REPO=""
+          WORKFLOW_FILE=""
+          
           if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
-            echo "This is the Next variant"
-            git clone https://github.com/KernelSU-Next/KernelSU-Next.git
-            cd KernelSU-Next
+            echo "Variant: Next"
+            git clone https://github.com/KernelSU-Next/KernelSU-Next.git ksu-source
+            cd ksu-source
             KSU_GIT_VERSION=$(git rev-list --count HEAD)
-            # ???
             KSU_VERSION=$((10000 + KSU_GIT_VERSION + 200))
-            echo $KSU_VERSION
-            echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+            
+            echo "REPO=KernelSU-Next/KernelSU-Next" >> $GITHUB_ENV
+            echo "WORKFLOW_FILE=build-manager.yml" >> $GITHUB_ENV # Проверьте имя файла в репозитории!
+            
           elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
-            echo "This is the SukiSU variant"
-            git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
-            cd SukiSU-Ultra
+            echo "Variant: SukiSU"
+            git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git ksu-source
+            cd ksu-source
             KSU_GIT_VERSION=$(git rev-list --count HEAD)
             KSU_VERSION=$((10000 + KSU_GIT_VERSION + 700))
-            echo $KSU_VERSION
-            echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+            
+            echo "REPO=SukiSU-Ultra/SukiSU-Ultra" >> $GITHUB_ENV
+            echo "WORKFLOW_FILE=build-manager.yml" >> $GITHUB_ENV
+            
           else
-            echo "Unknown variant"
+            echo "::error::Неизвестный вариант: ${{ inputs.kernelsu_variant }}"
+            exit 1
           fi
+          
+          echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+          echo "Calculated Version: $KSU_VERSION"
+          
+          # Удаляем исходники, чтобы не мешались
+          cd .. && rm -rf ksu-source
 
-      - name: 添加 KernelSU
+      - name: Скачивание KernelSU Manager
         run: |
-          if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
-            echo "KernelSU Next..."
-            REPO="KernelSU-Next/KernelSU-Next"
-            FILENAME="build-manager-ci.yml"
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
-            echo "SukiSU..."
-            REPO="SukiSU-Ultra/SukiSU-Ultra"
-            FILENAME="build-manager.yml"
-          fi
+          echo "Поиск артефактов в $REPO (Workflow: $WORKFLOW_FILE)..."
 
-          # 获取最新成功构建的 ID
-          BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/$REPO/actions/workflows/$FILENAME/runs?status=success" | \
-          jq -r '.workflow_runs[0].id')
-          echo 'BUILD_ID=$BUILD_ID'
-          # 获取该构建的 Artifacts
-          ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          # 1. Получаем ID последнего успешного запуска (исправлены кавычки на двойные)
+          # Используем per_page=1 для скорости
+          BUILD_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?status=success&per_page=1")
+          
+          BUILD_ID=$(echo "$BUILD_JSON" | jq -r '.workflow_runs[0].id')
+          
+          if [ "$BUILD_ID" == "null" ] || [ -z "$BUILD_ID" ]; then
+            echo "::error::Не удалось найти успешный билд! Ответ API:"
+            echo "$BUILD_JSON"
+            exit 1
+          fi
+          
+          echo "Найден Build ID: $BUILD_ID"
+
+          # 2. Получаем список артефактов этого билда
+          ARTIFACTS_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$REPO/actions/runs/$BUILD_ID/artifacts")
-          echo 'ARTIFACTS=$ARTIFACTS'
-          # 获取 Manager 文件的下载链接
-          if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
-            DOWNLOAD_URL=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | contains("Manager")) | .archive_download_url')
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
-            DOWNLOAD_URL=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | contains("Manager")) | .archive_download_url')
+
+          # 3. Ищем ссылку на скачивание (используем test для игнорирования регистра Manager/manager)
+          DOWNLOAD_URL=$(echo "$ARTIFACTS_JSON" | jq -r '.artifacts[] | select(.name | test("Manager"; "i")) | .archive_download_url' | head -n 1)
+
+          if [ "$DOWNLOAD_URL" == "null" ] || [ -z "$DOWNLOAD_URL" ]; then
+            echo "::error::Артефакт с именем 'Manager' не найден!"
+            echo "Доступные артефакты:"
+            echo "$ARTIFACTS_JSON" | jq -r '.artifacts[].name'
+            exit 1
           fi
 
-          # 下载 Manager 文件
-          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "${{ inputs.kernelsu_variant }}-管理器(${{ env.KSU_VERSION }}).zip" "$DOWNLOAD_URL"
-          echo "Manager 文件已下载为：${{ inputs.kernelsu_variant }}-管理器(${{ env.KSU_VERSION }}).zip"
-          unzip *.zip
+          echo "Ссылка получена. Скачивание..."
+          
+          # 4. Скачивание
+          # Важно: используем -L для редиректов.
+          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o manager.zip "$DOWNLOAD_URL"
 
-      - name: 上传编译资产
+          # Проверка, что файл скачался и он не пустой (и не JSON с ошибкой)
+          if [ ! -s manager.zip ]; then
+             echo "::error::Файл manager.zip пуст или не скачался."
+             exit 1
+          fi
+          
+          # Распаковка
+          unzip -o manager.zip -d extracted_manager
+          
+          # Подготовка файла для загрузки (находим APK где бы он ни был и переименовываем)
+          APK_PATH=$(find extracted_manager -name "*.apk" | head -n 1)
+          
+          if [ -z "$APK_PATH" ]; then
+            echo "::error::APK файл не найден внутри архива!"
+            ls -R extracted_manager
+            exit 1
+          fi
+          
+          echo "Найден APK: $APK_PATH"
+          mv "$APK_PATH" "${{ inputs.kernelsu_variant }}-Manager-v${{ env.KSU_VERSION }}.apk"
+
+      - name: Загрузка артефакта
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.kernelsu_variant }}-Manager(${{ env.KSU_VERSION }})
-          path: |
-            *.apk
+          name: ${{ inputs.kernelsu_variant }}-Manager-v${{ env.KSU_VERSION }}
+          path: ${{ inputs.kernelsu_variant }}-Manager-v${{ env.KSU_VERSION }}.apk
